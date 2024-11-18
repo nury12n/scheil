@@ -75,7 +75,12 @@ def _update_phase_compositions(phase_compositions: Mapping[str, Mapping[str, Lis
             # this will _not_ count phases with a miscibility gap! we need to include pycalphad multiplicity support
             continue
         for comp in phase_compositions[phase_name].keys():
-            x = float(eq_res["X"].isel(vertex=vertex).squeeze().sel(component=comp).values)
+            x_vertex = eq_res["X"].isel(vertex=vertex).squeeze()
+            if len(x_vertex.shape) == 0:
+                x = x_vertex.values
+            else:
+                x = x_vertex.sel(component=comp).values
+            #x = float(eq_res["X"].isel(vertex=vertex).squeeze().sel(component=comp).values)
             phase_compositions[phase_name][comp].append(x)
         phase_compositions_accounted_for.add(phase_name)
     # pad all other (unstable) phases with NaN
