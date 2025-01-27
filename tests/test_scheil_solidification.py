@@ -106,3 +106,49 @@ def test_equilibrium_solidification_result_properties():
     # Test to_dataframe doesn't raise
     sol_res.to_dataframe(include_zero_phases=True)
     sol_res.to_dataframe(include_zero_phases=False)
+
+def test_solidification_unary():
+    dbf = Database(os.path.join(os.path.dirname(__file__), 'alzn_mey.tdb'))
+    comps = ['AL', 'VA']
+    phases = ['FCC_A1', 'LIQUID']
+    start_temperature = 1000
+    sol_res = simulate_equilibrium_solidification(dbf, comps, phases, {},
+                                                  start_temperature=start_temperature,
+                                                  step_temperature=20.0, verbose=True)
+    
+    num_temperatures = len(sol_res.temperatures)
+    assert num_temperatures == len(sol_res.fraction_liquid)
+    assert num_temperatures == len(sol_res.fraction_solid)
+    assert all([num_temperatures == len(nphase) for nphase in sol_res.phase_amounts.values()])
+    assert all([num_temperatures == len(liq_comps) for liq_comps in sol_res.x_liquid.values()])
+    assert all([num_temperatures == len(nphase) for nphase in sol_res.cum_phase_amounts.values()])
+
+    # final phase amounts are correct
+    assert sol_res.fraction_liquid[-1] == 0.0
+    assert sol_res.fraction_solid[-1] == 1.0
+
+    # The final cumulative solid phase amounts is 1.0
+    assert np.isclose(np.sum([amnts[-1] for amnts in sol_res.cum_phase_amounts.values()]), 1.0)
+    # The final instantaneous phase amounts is 1.0 for unary, since solidification is instant with respect to temperature
+    assert np.isclose(np.sum([amnts[-1] for amnts in sol_res.phase_amounts.values()]), 1.0)
+
+    # Test serialization
+    for ky, vl in sol_res.to_dict().items():
+        print(ky, vl, type(ky), type(vl))
+        json.dumps({ky: vl})
+    json.dumps(sol_res.to_dict())
+
+    # Test round tripping to/from dict
+    rnd_trip_sol_res = SolidificationResult.from_dict(sol_res.to_dict())
+    assert rnd_trip_sol_res.fraction_liquid == sol_res.fraction_liquid
+    assert rnd_trip_sol_res.fraction_solid == sol_res.fraction_solid
+    assert rnd_trip_sol_res.x_liquid == sol_res.x_liquid
+    assert rnd_trip_sol_res.cum_phase_amounts == sol_res.cum_phase_amounts
+    assert rnd_trip_sol_res.phase_amounts == sol_res.phase_amounts
+    assert rnd_trip_sol_res.temperatures == sol_res.temperatures
+    assert rnd_trip_sol_res.converged == sol_res.converged
+    assert rnd_trip_sol_res.method == sol_res.method
+
+    # Test to_dataframe doesn't raise
+    sol_res.to_dataframe(include_zero_phases=True)
+    sol_res.to_dataframe(include_zero_phases=False)

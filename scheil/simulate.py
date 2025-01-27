@@ -50,7 +50,11 @@ def _update_points(eq, points_dict, dof_dict, local_pdens=0, verbose=False):
             if verbose:
                 print(f'Adding points to {ph}. ', end='')
             dof = dof_dict[ph]
-            eq_pts = eq.Y.squeeze()[vtx, :sum(dof)].reshape(1, -1)
+            # eq.Y.squeeze() needs to be 2d, but it can become 1d if the max dof of all phases in samples is 1 (e.g. unary systems)
+            y = eq.Y.squeeze()
+            if len(y.shape) == 1:
+                y = np.atleast_2d(y).T
+            eq_pts = y[vtx, :sum(dof)].reshape(1, -1)
             if local_pdens > 0:
                 points_dict[ph] = np.concatenate([pts, local_sample(eq_pts, dof, pdens=local_pdens)], axis=0)
             else:
@@ -76,11 +80,11 @@ def _update_phase_compositions(phase_compositions: Mapping[str, Mapping[str, Lis
             continue
         for comp in phase_compositions[phase_name].keys():
             x_vertex = eq_res["X"].isel(vertex=vertex).squeeze()
+            # for unary systems, x_vertex will be a scalar
             if len(x_vertex.shape) == 0:
-                x = x_vertex.values
+                x = float(x_vertex.values)
             else:
-                x = x_vertex.sel(component=comp).values
-            #x = float(eq_res["X"].isel(vertex=vertex).squeeze().sel(component=comp).values)
+                x = float(x_vertex.sel(component=comp).values)
             phase_compositions[phase_name][comp].append(x)
         phase_compositions_accounted_for.add(phase_name)
     # pad all other (unstable) phases with NaN
